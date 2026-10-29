@@ -45,11 +45,11 @@ export function isMockApi() {
   return USE_MOCKS;
 }
 
-export async function login({ email, role, campId }) {
+export async function login({ email, password, role, campId }) {
   if (!USE_MOCKS) {
     return http('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, role, campId }),
+      body: JSON.stringify({ email, password, role, campId }),
     });
   }
 
@@ -164,7 +164,18 @@ export async function logCampInventory(campId, payload) {
   };
   campInventory = [nextRow, ...campInventory.filter((row) => !(row.campId === campId && row.item === payload.item))];
 
-  return delay(nextRow);
+  const targetCamp = camps.find((c) => c.id === campId);
+  let updatedStatus = 'Normal';
+  if (targetCamp) {
+    const water = campInventory.filter((r) => r.campId === campId && r.category === 'Water').reduce((s, r) => s + Number(r.count), 0);
+    const food = campInventory.filter((r) => r.campId === campId && r.category === 'Food').reduce((s, r) => s + Number(r.count), 0);
+    const isCritical = water < (targetCamp.population * 2.0) || food < (targetCamp.population * 0.5);
+    updatedStatus = isCritical ? 'Critical Level' : 'Normal';
+    targetCamp.status = updatedStatus;
+    targetCamp.lastUpdated = new Date().toISOString();
+  }
+
+  return delay({ ...nextRow, campStatus: updatedStatus });
 }
 
 export async function getVolunteers() {
@@ -173,6 +184,28 @@ export async function getVolunteers() {
   }
 
   return delay(volunteers);
+}
+
+export async function getCampRequests(campId) {
+  if (!USE_MOCKS) {
+    return http(`/camps/${campId}/requests`);
+  }
+
+  return delay(
+    pendingRequestMatches
+      .filter((req) => req.campId === campId)
+      .map((req) => ({
+        id: req.id,
+        campId: req.campId,
+        item: req.item,
+        category: 'Water',
+        quantity: req.quantity,
+        unit: req.unit,
+        urgency: req.urgency,
+        status: req.status || 'pending',
+        createdAt: req.createdAt,
+      })),
+  );
 }
 
 export async function createSupplyRequest(campId, payload) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Filter, Plus } from 'lucide-react';
-import { getCampInventory, getHubInventory, logCampInventory } from '../api/client';
+import { getCampInventory, getCamps, getHubInventory, logCampInventory } from '../api/client';
 import StatusBadge from '../components/StatusBadge.jsx';
 
 const categoryOptions = ['all', 'Water', 'Food', 'Medical', 'Shelter'];
@@ -125,6 +125,7 @@ function HubInventory() {
 
 function CampInventory({ user }) {
   const [rows, setRows] = useState([]);
+  const [camp, setCamp] = useState(null);
   const [form, setForm] = useState({
     item: 'Potable Water',
     category: 'Water',
@@ -137,8 +138,14 @@ function CampInventory({ user }) {
   async function load() {
     setError('');
     try {
-      const result = await getCampInventory(user.campId);
+      const [result, campList] = await Promise.all([
+        getCampInventory(user.campId),
+        getCamps({ role: user.role, campId: user.campId }),
+      ]);
       setRows(result);
+      if (campList && campList.length > 0) {
+        setCamp(campList[0]);
+      }
     } catch (loadError) {
       setError(loadError.message || 'Unable to load camp inventory');
     }
@@ -155,10 +162,15 @@ function CampInventory({ user }) {
     setNotice('');
 
     try {
-      await logCampInventory(user.campId, form);
+      const res = await logCampInventory(user.campId, form);
       setForm((draft) => ({ ...draft, count: '' }));
-      setNotice('Inventory logged');
-      load();
+      const newStatus = res?.campStatus || 'Normal';
+      setNotice(
+        newStatus === 'Normal'
+          ? '✓ Inventory logged! 24-hr buffer requirement satisfied. Camp status updated to Normal.'
+          : '✓ Inventory logged successfully.'
+      );
+      await load();
     } catch (saveError) {
       setError(saveError.message || 'Unable to log inventory');
     }
@@ -166,8 +178,45 @@ function CampInventory({ user }) {
 
   return (
     <div className="screen-stack">
+      {/* Camp Status & 24-Hour Buffer Monitor */}
+      {camp ? (
+        <section className={camp.status === 'Critical Level' ? 'panel alert-panel' : 'panel'}>
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Assigned Camp Buffer Monitor</p>
+              <h2>{camp.name}</h2>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>Camp Status:</span>
+              <StatusBadge value={camp.status} />
+            </div>
+          </div>
+          <div className="detail-grid">
+            <div>
+              <span>Population</span>
+              <strong>{camp.population?.toLocaleString()} people</strong>
+            </div>
+            <div>
+              <span>Water Target (2L/day)</span>
+              <strong>{(camp.population * 2)?.toLocaleString()} liters</strong>
+            </div>
+            <div>
+              <span>Food Target (0.5kg/day)</span>
+              <strong>{(camp.population * 0.5)?.toLocaleString()} kg</strong>
+            </div>
+            <div>
+              <span>24-Hour Buffer Trigger</span>
+              <strong style={{ color: camp.status === 'Critical Level' ? 'var(--critical)' : 'var(--calm)' }}>
+                {camp.status === 'Critical Level' ? '⚠️ Critical Shortage' : '✓ Buffer Satisfied'}
+              </strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {error ? <p className="form-error">{error}</p> : null}
       {notice ? <p className="form-success">{notice}</p> : null}
+
       <div className="split-grid split-narrow">
         <section className="panel">
           <div className="panel-heading">

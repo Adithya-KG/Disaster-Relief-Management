@@ -126,7 +126,7 @@ export const mockCampInventory = [
     campId: 'camp-east-ridge',
     item: 'Rice Rations',
     category: 'Food',
-    count: 210,
+    count: 700,
     unit: 'kg',
     lastLogged: '2026-08-05T07:46:00+05:30',
   },

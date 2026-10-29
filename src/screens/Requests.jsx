@@ -3,6 +3,7 @@ import { RefreshCw, Send, Truck } from 'lucide-react';
 import {
   createSupplyRequest,
   dispatchTruck,
+  getCampRequests,
   getPendingRequestMatches,
   getVolunteers,
 } from '../api/client';
@@ -34,7 +35,6 @@ function DispatchRequests() {
     try {
       const rows = await getVolunteers();
       setVolunteers(rows);
-      setVolunteerId((current) => current || rows.find((row) => row.availability === 'available')?.id || '');
     } catch (loadError) {
       setError(loadError.message || 'Unable to load volunteers');
     }
@@ -44,9 +44,19 @@ function DispatchRequests() {
     loadVolunteers();
   }, []);
 
+  // Synchronize requestId with available pending items
   useEffect(() => {
-    setRequestId((current) => current || pending.data[0]?.id || '');
-  }, [pending.data]);
+    if (!pending.data.some((req) => req.id === requestId)) {
+      setRequestId(pending.data[0]?.id || '');
+    }
+  }, [pending.data, requestId]);
+
+  // Synchronize volunteerId with available volunteers
+  useEffect(() => {
+    if (!availableVolunteers.some((vol) => vol.id === volunteerId)) {
+      setVolunteerId(availableVolunteers[0]?.id || '');
+    }
+  }, [availableVolunteers, volunteerId]);
 
   async function handleDispatch(event) {
     event.preventDefault();
@@ -55,7 +65,9 @@ function DispatchRequests() {
 
     try {
       const result = await dispatchTruck({ requestId, volunteerId });
-      setNotice(`Dispatch ${result.dispatchId} confirmed`);
+      setNotice(`✓ Dispatch ${result.dispatchId} confirmed: Request ${requestId} marked in-transit & stock deducted.`);
+      setRequestId('');
+      setVolunteerId('');
       await Promise.all([pending.refresh(), loadVolunteers()]);
     } catch (dispatchError) {
       if (dispatchError.status === 409) {
@@ -97,27 +109,35 @@ function DispatchRequests() {
               </tr>
             </thead>
             <tbody>
-              {pending.data.map((request) => (
-                <tr key={request.id}>
-                  <td>
-                    <strong>{request.id}</strong>
+              {pending.data.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', color: 'var(--muted)', padding: '2rem' }}>
+                    No pending requests in queue.
                   </td>
-                  <td>{request.campName}</td>
-                  <td>
-                    {request.quantity.toLocaleString()} {request.unit} {request.item}
-                  </td>
-                  <td>
-                    <StatusBadge value={request.urgency} />
-                  </td>
-                  <td>{request.matchedHub?.name || 'Unmatched'}</td>
-                  <td>
-                    {request.matchedHub?.availableStock
-                      ? request.matchedHub.availableStock.toLocaleString()
-                      : 'Pending'}
-                  </td>
-                  <td>{request.etaMinutes ? `${request.etaMinutes} min` : 'Pending'}</td>
                 </tr>
-              ))}
+              ) : (
+                pending.data.map((request) => (
+                  <tr key={request.id}>
+                    <td>
+                      <strong>{request.id}</strong>
+                    </td>
+                    <td>{request.campName}</td>
+                    <td>
+                      {request.quantity.toLocaleString()} {request.unit} {request.item}
+                    </td>
+                    <td>
+                      <StatusBadge value={request.urgency} />
+                    </td>
+                    <td>{request.matchedHub?.name || 'Unmatched'}</td>
+                    <td>
+                      {request.matchedHub?.availableStock
+                        ? request.matchedHub.availableStock.toLocaleString()
+                        : 'Pending'}
+                    </td>
+                    <td>{request.etaMinutes ? `${request.etaMinutes} min` : 'Pending'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -135,21 +155,29 @@ function DispatchRequests() {
           <label>
             Pending request
             <select value={requestId} onChange={(event) => setRequestId(event.target.value)} required>
-              {pending.data.map((request) => (
-                <option key={request.id} value={request.id}>
-                  {request.id} / {request.campName} / {request.item}
-                </option>
-              ))}
+              {pending.data.length === 0 ? (
+                <option value="">No pending requests</option>
+              ) : (
+                pending.data.map((request) => (
+                  <option key={request.id} value={request.id}>
+                    {request.id} / {request.campName} / {request.item} ({request.quantity.toLocaleString()} {request.unit})
+                  </option>
+                ))
+              )}
             </select>
           </label>
           <label>
             Available volunteer
             <select value={volunteerId} onChange={(event) => setVolunteerId(event.target.value)} required>
-              {availableVolunteers.map((volunteer) => (
-                <option key={volunteer.id} value={volunteer.id}>
-                  {volunteer.name} / {volunteer.vehicleAccess} / {volunteer.assignedZone}
-                </option>
-              ))}
+              {availableVolunteers.length === 0 ? (
+                <option value="">No available volunteers</option>
+              ) : (
+                availableVolunteers.map((volunteer) => (
+                  <option key={volunteer.id} value={volunteer.id}>
+                    {volunteer.name} / {volunteer.vehicleAccess} / Zone {volunteer.assignedZone}
+                  </option>
+                ))
+              )}
             </select>
           </label>
           <button className="primary-action span-2" disabled={!requestId || !volunteerId} type="submit">
@@ -163,6 +191,7 @@ function DispatchRequests() {
 }
 
 function CampRequests({ user }) {
+  const [requests, setRequests] = useState([]);
   const [form, setForm] = useState({
     item: 'Potable Water',
     quantity: '',
@@ -172,6 +201,20 @@ function CampRequests({ user }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
+  async function load() {
+    try {
+      const rows = await getCampRequests(user.campId);
+      setRequests(rows);
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.campId]);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setNotice('');
@@ -179,8 +222,9 @@ function CampRequests({ user }) {
 
     try {
       const request = await createSupplyRequest(user.campId, form);
-      setNotice(`Request ${request.id} raised`);
+      setNotice(`✓ Request ${request.id} raised successfully`);
       setForm((draft) => ({ ...draft, quantity: '' }));
+      load();
     } catch (requestError) {
       setError(requestError.message || 'Unable to raise request');
     }
@@ -190,54 +234,106 @@ function CampRequests({ user }) {
     <div className="screen-stack">
       {notice ? <p className="form-success">{notice}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Supply Request</p>
-            <h2>Raise Urgent Request</h2>
+
+      <div className="split-grid split-narrow">
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Camp Requests</p>
+              <h2>Request History</h2>
+            </div>
           </div>
-        </div>
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label>
-            Item
-            <input
-              value={form.item}
-              onChange={(event) => setForm((draft) => ({ ...draft, item: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Quantity
-            <input
-              min="1"
-              type="number"
-              value={form.quantity}
-              onChange={(event) => setForm((draft) => ({ ...draft, quantity: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Unit
-            <input
-              value={form.unit}
-              onChange={(event) => setForm((draft) => ({ ...draft, unit: event.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Urgency
-            <select value={form.urgency} onChange={(event) => setForm((draft) => ({ ...draft, urgency: event.target.value }))}>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-            </select>
-          </label>
-          <button className="primary-action span-2" type="submit">
-            <Send size={16} aria-hidden="true" />
-            Raise Request
-          </button>
-        </form>
-      </section>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Request ID</th>
+                  <th>Item</th>
+                  <th>Quantity</th>
+                  <th>Urgency</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--muted)', padding: '1.5rem' }}>
+                      No requests recorded for this camp.
+                    </td>
+                  </tr>
+                ) : (
+                  requests.map((req) => (
+                    <tr key={req.id}>
+                      <td>
+                        <strong>{req.id}</strong>
+                      </td>
+                      <td>{req.item}</td>
+                      <td>
+                        {Number(req.quantity).toLocaleString()} {req.unit}
+                      </td>
+                      <td>
+                        <StatusBadge value={req.urgency} />
+                      </td>
+                      <td>
+                        <StatusBadge value={req.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Supply Request</p>
+              <h2>Raise Urgent Request</h2>
+            </div>
+          </div>
+          <form className="form-grid" onSubmit={handleSubmit}>
+            <label>
+              Item
+              <input
+                value={form.item}
+                onChange={(event) => setForm((draft) => ({ ...draft, item: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Quantity
+              <input
+                min="1"
+                type="number"
+                value={form.quantity}
+                onChange={(event) => setForm((draft) => ({ ...draft, quantity: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Unit
+              <input
+                value={form.unit}
+                onChange={(event) => setForm((draft) => ({ ...draft, unit: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              Urgency
+              <select value={form.urgency} onChange={(event) => setForm((draft) => ({ ...draft, urgency: event.target.value }))}>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+              </select>
+            </label>
+            <button className="primary-action span-2" type="submit">
+              <Send size={16} aria-hidden="true" />
+              Raise Request
+            </button>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }
