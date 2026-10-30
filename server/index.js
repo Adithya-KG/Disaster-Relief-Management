@@ -673,8 +673,20 @@ if (fs.existsSync(distPath)) {
 // ----------------------------------------------------------------------------
 // Start Server
 // ----------------------------------------------------------------------------
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✓ Disaster Relief Backend API running on http://localhost:${PORT}`);
   console.log(`✓ Database: SQLite (${path.resolve(__dirname, '../database/disaster_relief.sqlite')})`);
   console.log(`✓ pgAdmin Script available at: database/postgresql/disaster_relief_pgadmin.sql`);
 });
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Error: Port ${PORT} is already in use by another process.`);
+    console.error(`   To free port ${PORT}, run: fuser -k ${PORT}/tcp or kill the existing process.\n`);
+  } else {
+    console.error('\n❌ Server error:', err.message);
+  }
+  process.exit(1);
+});
+
+export default app;
