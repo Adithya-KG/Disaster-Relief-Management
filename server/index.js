@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 
@@ -621,31 +622,22 @@ app.post('/api/dispatches', (req, res) => {
     }
 
     // 4. Execute atomic transaction
+    // Triggers trg_check_inventory_stock & trg_deduct_inventory_stock validate and deduct stock
+    // Trigger trg_prevent_volunteer_double_booking & trg_dispatch_after_insert handle volunteer/request status
     const dispatchId = `DSP-${Date.now()}`;
 
     const executeTransaction = db.transaction(() => {
-      // Deduct inventory
-      db.prepare(
-        'UPDATE Inventory SET QuantityAvailable = QuantityAvailable - ? WHERE ItemID = ?'
-      ).run(request.QuantityRequested, inventoryItem.ItemID);
-
-      // Create Dispatch record
+      // Create Dispatch record (fires trg_prevent_volunteer_double_booking & trg_dispatch_after_insert)
       db.prepare(
         `INSERT INTO Dispatch (DispatchID, RequestID, HubID, CampID, VolunteerID, DispatchDate, TransitStatus)
          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'in_transit')`
       ).run(dispatchId, requestId, inventoryItem.HubID, request.CampID, volunteerId);
 
-      // Create Dispatch_Item bridge record
+      // Create Dispatch_Item bridge record (fires trg_check_inventory_stock & trg_deduct_inventory_stock)
       db.prepare(
         `INSERT INTO Dispatch_Item (DispatchID, ItemID, QuantityDispatched)
          VALUES (?, ?, ?)`
       ).run(dispatchId, inventoryItem.ItemID, request.QuantityRequested);
-
-      // Update Volunteer availability
-      db.prepare("UPDATE Volunteer SET Availability = 'assigned' WHERE VolunteerID = ?").run(volunteerId);
-
-      // Update Request status
-      db.prepare("UPDATE Request SET Status = 'in_transit' WHERE RequestID = ?").run(requestId);
     });
 
     executeTransaction();
@@ -663,6 +655,20 @@ app.post('/api/dispatches', (req, res) => {
     return res.status(500).json({ message: err.message });
   }
 });
+
+// ----------------------------------------------------------------------------
+// Serve Static Frontend (Production Build)
+// ----------------------------------------------------------------------------
+const distPath = path.resolve(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(distPath, 'index.html'));
+    }
+    next();
+  });
+}
 
 // ----------------------------------------------------------------------------
 // Start Server

@@ -47,9 +47,9 @@ Open **two terminals** in this folder:
 
 ## Verification & pgAdmin 4
 
-- **Run API tests:**
+- **Run tests:**
   ```bash
-  node server/testApi.js
+  npm test
   ```
 
 - **For pgAdmin 4 (PostgreSQL):**

@@ -14,6 +14,8 @@ Built for our Database Management Systems course.
 
 ## Database Design
 
+See the visual [Entity-Relationship (ER) Diagram](docs/ER_DIAGRAM.md) for table relationships and schema details.
+
 ### Tables
 
 1. **Relief_Camp** - Camp details, location coordinates, population, capacity, and status (`Normal`, `Moderate`, `Critical Level`).
@@ -68,6 +70,12 @@ npm run dev
 ```
 Open `http://localhost:5173` in your browser.
 
+### 5. Run tests (optional verification)
+```bash
+npm test
+```
+*(Runs 14 automated API & trigger tests and verifies the 5 analytical SQL queries)*
+
 ---
 
 ## Demo Accounts
@@ -88,3 +96,21 @@ If you need to show it running in pgAdmin:
 2. Open Query Tool (`Alt + Shift + Q`).
 3. Open `database/postgresql/disaster_relief_pgadmin.sql` and press **F5** to run.
 4. Right click `disaster_relief` > **Generate ERD** to see the ER diagram.
+
+---
+
+## Quick Viva / Presentation Summary
+
+When asked to explain the project:
+1. **Problem**: During disasters, relief supplies get misallocated because camps and hubs operate on disconnected spreadsheets and messages.
+2. **Solution**: A centralized relational database (9 tables, 3NF) linking camps, supply hubs, inventories, volunteers, requests, and dispatches.
+3. **Core DBMS Concepts Used**:
+   - **Keys & Constraints**: Foreign keys with `CASCADE` / `RESTRICT`, composite PK on junction table `Dispatch_Item(DispatchID, ItemID)`, and `CHECK` constraints (e.g. non-negative stock).
+   - **Triggers**:
+     - Automatically flags a camp as `Critical Level` when water (< 2L/person) or food (< 0.5kg/person) falls below minimum safety buffer.
+     - Prevents volunteer double-booking before a dispatch record is saved.
+     - Automatically deducts hub stock upon dispatch item insertion.
+     - Synchronizes volunteer availability (`assigned`) and request status (`in_transit`).
+   - **Transactions**: Atomic dispatch creation ensuring dispatch, junction items, and stock updates happen together or rollback.
+   - **Complex Queries**: Proximity-based matching of camp requests to stocked hubs using geographic coordinates and distance calculation.
+

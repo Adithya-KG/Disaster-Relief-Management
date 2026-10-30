@@ -2,6 +2,7 @@ CREATE DATABASE IF NOT EXISTS DisasterReliefDB;
 USE DisasterReliefDB;
 
 -- Drop existing tables
+DROP TABLE IF EXISTS App_User;
 DROP TABLE IF EXISTS Dispatch_Item;
 DROP TABLE IF EXISTS Dispatch;
 DROP TABLE IF EXISTS Request;
@@ -116,6 +117,18 @@ CREATE TABLE Camp_Inventory (
     LastLogged TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_ci_camp FOREIGN KEY (CampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE CASCADE,
     UNIQUE KEY uq_camp_item (CampID, ItemName)
+) ENGINE=InnoDB;
+
+-- App Users
+CREATE TABLE App_User (
+    UserID VARCHAR(50) PRIMARY KEY,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Password VARCHAR(100) NOT NULL,
+    FullName VARCHAR(100) NOT NULL,
+    Role ENUM('dispatcher', 'camp_manager') NOT NULL,
+    AssignedCampID VARCHAR(50),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_camp FOREIGN KEY (AssignedCampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Stored procedure for dispatch transaction

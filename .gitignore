@@ -4,3 +4,5 @@ dist
 .env.local
 .DS_Store
 preview-login.png
+*.sqlite-wal
+*.sqlite-shm

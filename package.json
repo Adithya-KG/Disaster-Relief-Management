@@ -4,9 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "start": "node server/index.js",
     "dev": "vite --host 127.0.0.1",
     "server": "node server/index.js",
     "db:setup": "node server/setupDb.js",
+    "test": "node server/testApi.js",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
