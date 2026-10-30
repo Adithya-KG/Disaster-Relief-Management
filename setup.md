@@ -7,7 +7,18 @@ Quick instructions to get the project running.
 
 ---
 
-## Quick Start (3 Steps)
+## 1-Step Local Deployment (Recommended)
+
+Run the automated deployment script:
+```bash
+./deploy.sh
+# or: npm run deploy
+```
+Open **`http://localhost:8080`** in your browser.
+
+---
+
+## Manual 3-Step Setup (Development)
 
 ### 1. Install dependencies
 ```bash

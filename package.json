@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "deploy": "./deploy.sh",
     "start": "node server/index.js",
     "dev": "vite --host 127.0.0.1",
     "server": "node server/index.js",

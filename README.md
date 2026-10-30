@@ -44,7 +44,22 @@ See the visual [Entity-Relationship (ER) Diagram](docs/ER_DIAGRAM.md) for table 
 
 ---
 
-## How to Run
+## Quick 1-Command Local Deployment
+
+To automatically free ports, seed the database, build the frontend, and launch the application in **one step**:
+
+```bash
+./deploy.sh
+# or: npm run deploy
+```
+
+Then open **`http://localhost:8080`** in your browser.
+
+---
+
+## Manual Step-by-Step Setup (Development Mode)
+
+If you prefer running frontend and backend separately in two terminals:
 
 ### 1. Install dependencies
 ```bash
@@ -57,20 +72,19 @@ npm run db:setup
 ```
 *(Creates the SQLite database, tables, triggers, and seed data automatically)*
 
-### 3. Start the backend server
+### 3. Start the backend server (Terminal 1)
 ```bash
 npm run server
 ```
 Server runs on `http://localhost:8080`.
 
-### 4. Start the frontend
-In a new terminal:
+### 4. Start the frontend (Terminal 2)
 ```bash
 npm run dev
 ```
 Open `http://localhost:5173` in your browser.
 
-### 5. Run tests (optional verification)
+### 5. Run tests (verification)
 ```bash
 npm test
 ```
