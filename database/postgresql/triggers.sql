@@ -1,13 +1,4 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- Engine: PostgreSQL (PL/pgSQL Triggers & Business Rules)
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- Rule 1: Camp Status Level Auto-Update Trigger Function
--- Evaluates if logged Water < (Population * 2.0 L) OR Food < (Population * 0.5 kg).
--- ----------------------------------------------------------------------------
+-- Camp status update trigger
 CREATE OR REPLACE FUNCTION fn_camp_buffer_status()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -49,9 +40,7 @@ CREATE TRIGGER trg_camp_inv_update_check_buffer
 AFTER UPDATE ON Camp_Inventory
 FOR EACH ROW EXECUTE FUNCTION fn_camp_buffer_status();
 
--- ----------------------------------------------------------------------------
--- Rule 2: Prevent Volunteer Double-Booking
--- ----------------------------------------------------------------------------
+-- Volunteer double-booking prevention trigger
 CREATE OR REPLACE FUNCTION fn_prevent_volunteer_double_booking()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -76,9 +65,7 @@ CREATE TRIGGER trg_prevent_volunteer_double_booking
 BEFORE INSERT ON Dispatch
 FOR EACH ROW EXECUTE FUNCTION fn_prevent_volunteer_double_booking();
 
--- ----------------------------------------------------------------------------
--- Rule 3: Mark Volunteer Assigned & Request In-Transit on Dispatch
--- ----------------------------------------------------------------------------
+-- Volunteer assignment and request status update trigger
 CREATE OR REPLACE FUNCTION fn_dispatch_after_insert()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -99,9 +86,7 @@ CREATE TRIGGER trg_dispatch_after_insert
 AFTER INSERT ON Dispatch
 FOR EACH ROW EXECUTE FUNCTION fn_dispatch_after_insert();
 
--- ----------------------------------------------------------------------------
--- Rule 4: Inventory Stock Deduction & Oversell Prevention
--- ----------------------------------------------------------------------------
+-- Stock deduction and check trigger
 CREATE OR REPLACE FUNCTION fn_check_and_deduct_inventory()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -126,9 +111,7 @@ CREATE TRIGGER trg_check_and_deduct_inventory
 BEFORE INSERT ON Dispatch_Item
 FOR EACH ROW EXECUTE FUNCTION fn_check_and_deduct_inventory();
 
--- ----------------------------------------------------------------------------
--- Rule 5: Request Fulfillment Integrity
--- ----------------------------------------------------------------------------
+-- Request fulfillment verification trigger
 CREATE OR REPLACE FUNCTION fn_verify_request_fulfillment()
 RETURNS TRIGGER AS $$
 DECLARE

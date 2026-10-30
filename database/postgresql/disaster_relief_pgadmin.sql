@@ -1,15 +1,4 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- Target Engine: PostgreSQL (pgAdmin 4 Compatible Master Script)
--- ============================================================================
--- Instructions for pgAdmin 4:
--- 1. In pgAdmin, create or connect to your database (e.g., 'disaster_relief').
--- 2. Open Tools > Query Tool (or press Alt+Shift+Q).
--- 3. Open or paste this entire script and click Execute (F5).
--- ============================================================================
-
--- Drop existing tables, procedures and functions in clean dependency order
+-- Drops
 DROP PROCEDURE IF EXISTS sp_execute_dispatch(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, INT);
 
 DROP TRIGGER IF EXISTS trg_camp_inv_insert_check_buffer ON Camp_Inventory;
@@ -35,11 +24,9 @@ DROP TABLE IF EXISTS Volunteer CASCADE;
 DROP TABLE IF EXISTS Supply_Hub CASCADE;
 DROP TABLE IF EXISTS Relief_Camp CASCADE;
 
--- ============================================================================
--- SECTION 1: RELATIONAL SCHEMA DEFINITION (Section 3.3)
--- ============================================================================
+-- Tables
 
--- 1. Relief_Camp (CampID (PK), CampName, Location, Latitude, Longitude, CurrentPopulation, ContactInfo, StatusLevel)
+-- Relief Camps
 CREATE TABLE Relief_Camp (
     CampID VARCHAR(50) PRIMARY KEY,
     CampName VARCHAR(100) NOT NULL,
@@ -56,7 +43,7 @@ CREATE TABLE Relief_Camp (
     LastUpdated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Supply_Hub (HubID (PK), HubName, Location, Capacity, ContactInfo)
+-- Supply Hubs
 CREATE TABLE Supply_Hub (
     HubID VARCHAR(50) PRIMARY KEY,
     HubName VARCHAR(100) NOT NULL,
@@ -68,7 +55,7 @@ CREATE TABLE Supply_Hub (
     ContactInfo VARCHAR(200)
 );
 
--- 3. Inventory (ItemID (PK), HubID (FK -> Supply_Hub.HubID), ItemName, Category, QuantityAvailable, Unit, ShelfLifeDate)
+-- Hub Inventory
 CREATE TABLE Inventory (
     ItemID VARCHAR(50) PRIMARY KEY,
     HubID VARCHAR(50) NOT NULL,
@@ -83,7 +70,7 @@ CREATE TABLE Inventory (
     CONSTRAINT fk_inv_hub FOREIGN KEY (HubID) REFERENCES Supply_Hub(HubID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 4. Volunteer (VolunteerID (PK), Name, Phone, Skills, VehicleAccess, AssignedZone)
+-- Volunteers
 CREATE TABLE Volunteer (
     VolunteerID VARCHAR(50) PRIMARY KEY,
     Name VARCHAR(100) NOT NULL,
@@ -94,7 +81,7 @@ CREATE TABLE Volunteer (
     Availability VARCHAR(30) NOT NULL DEFAULT 'available' CHECK (Availability IN ('available', 'assigned', 'standby'))
 );
 
--- 5. Request (RequestID (PK), CampID (FK -> Relief_Camp.CampID), ItemCategory, ItemName, QuantityRequested, UrgencyLevel, RequestDate, Status)
+-- Camp Requests
 CREATE TABLE Request (
     RequestID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -108,10 +95,10 @@ CREATE TABLE Request (
     CONSTRAINT fk_req_camp FOREIGN KEY (CampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 6. Dispatch (DispatchID (PK), RequestID (FK -> Request.RequestID), HubID (FK -> Supply_Hub.HubID), CampID (FK -> Relief_Camp.CampID), VolunteerID (FK -> Volunteer.VolunteerID), DispatchDate, TransitStatus)
+-- Dispatches
 CREATE TABLE Dispatch (
     DispatchID VARCHAR(50) PRIMARY KEY,
-    RequestID VARCHAR(50) NOT NULL UNIQUE, -- 1:1 relationship with Request
+    RequestID VARCHAR(50) NOT NULL UNIQUE,
     HubID VARCHAR(50) NOT NULL,
     CampID VARCHAR(50) NOT NULL,
     VolunteerID VARCHAR(50) NOT NULL,
@@ -123,7 +110,7 @@ CREATE TABLE Dispatch (
     CONSTRAINT fk_dsp_vol FOREIGN KEY (VolunteerID) REFERENCES Volunteer(VolunteerID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 7. Dispatch_Item (DispatchID (PK, FK -> Dispatch.DispatchID), ItemID (PK, FK -> Inventory.ItemID), QuantityDispatched)
+-- Dispatch Items
 CREATE TABLE Dispatch_Item (
     DispatchID VARCHAR(50) NOT NULL,
     ItemID VARCHAR(50) NOT NULL,
@@ -133,7 +120,7 @@ CREATE TABLE Dispatch_Item (
     CONSTRAINT fk_di_item FOREIGN KEY (ItemID) REFERENCES Inventory(ItemID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 8. Camp_Inventory (Camp On-Site Logged Inventory for 24-hr buffer evaluation)
+-- Camp Inventory
 CREATE TABLE Camp_Inventory (
     InventoryID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -146,7 +133,7 @@ CREATE TABLE Camp_Inventory (
     CONSTRAINT uq_camp_item UNIQUE (CampID, ItemName)
 );
 
--- 9. App_User (User Accounts & Authentication)
+-- App Users
 CREATE TABLE App_User (
     UserID VARCHAR(50) PRIMARY KEY,
     Email VARCHAR(100) UNIQUE NOT NULL,
@@ -158,12 +145,9 @@ CREATE TABLE App_User (
     CONSTRAINT fk_user_camp FOREIGN KEY (AssignedCampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
--- ============================================================================
--- SECTION 2: PL/PGSQL TRIGGERS & INTEGRITY RULES (Section 3.1)
--- ============================================================================
+-- Triggers
 
--- Rule 1: Camp Status Level Auto-Update Trigger Function
--- Evaluates if logged Water < (Population * 2.0 L) OR Food < (Population * 0.5 kg).
+-- Camp status update trigger
 CREATE OR REPLACE FUNCTION fn_camp_buffer_status()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -195,15 +179,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_camp_inv_insert_check_buffer ON Camp_Inventory;
 CREATE TRIGGER trg_camp_inv_insert_check_buffer
 AFTER INSERT ON Camp_Inventory
 FOR EACH ROW EXECUTE FUNCTION fn_camp_buffer_status();
 
+DROP TRIGGER IF EXISTS trg_camp_inv_update_check_buffer ON Camp_Inventory;
 CREATE TRIGGER trg_camp_inv_update_check_buffer
 AFTER UPDATE ON Camp_Inventory
 FOR EACH ROW EXECUTE FUNCTION fn_camp_buffer_status();
 
--- Rule 2: Prevent Volunteer Double-Booking Trigger Function
+-- Volunteer double-booking prevention trigger
 CREATE OR REPLACE FUNCTION fn_prevent_volunteer_double_booking()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -223,11 +209,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_prevent_volunteer_double_booking ON Dispatch;
 CREATE TRIGGER trg_prevent_volunteer_double_booking
 BEFORE INSERT ON Dispatch
 FOR EACH ROW EXECUTE FUNCTION fn_prevent_volunteer_double_booking();
 
--- Rule 3: Mark Volunteer Assigned & Request In-Transit on Dispatch
+-- Volunteer assignment and request status update trigger
 CREATE OR REPLACE FUNCTION fn_dispatch_after_insert()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -243,11 +230,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_dispatch_after_insert ON Dispatch;
 CREATE TRIGGER trg_dispatch_after_insert
 AFTER INSERT ON Dispatch
 FOR EACH ROW EXECUTE FUNCTION fn_dispatch_after_insert();
 
--- Rule 4: Inventory Stock Deduction & Oversell Prevention
+-- Stock deduction and check trigger
 CREATE OR REPLACE FUNCTION fn_check_and_deduct_inventory()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -267,11 +255,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_check_and_deduct_inventory ON Dispatch_Item;
 CREATE TRIGGER trg_check_and_deduct_inventory
 BEFORE INSERT ON Dispatch_Item
 FOR EACH ROW EXECUTE FUNCTION fn_check_and_deduct_inventory();
 
--- Rule 5: Request Fulfillment Integrity
+-- Request fulfillment verification trigger
 CREATE OR REPLACE FUNCTION fn_verify_request_fulfillment()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -287,13 +276,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_verify_request_fulfillment ON Request;
 CREATE TRIGGER trg_verify_request_fulfillment
 BEFORE UPDATE OF Status ON Request
 FOR EACH ROW EXECUTE FUNCTION fn_verify_request_fulfillment();
 
--- ============================================================================
--- SECTION 3: STORED PROCEDURE FOR ATOMIC DISPATCH TRANSACTION (Section 3.1)
--- ============================================================================
+-- Stored procedure for creating a dispatch
 CREATE OR REPLACE PROCEDURE sp_execute_dispatch(
     p_dispatch_id VARCHAR(50),
     p_request_id VARCHAR(50),
@@ -306,35 +294,31 @@ CREATE OR REPLACE PROCEDURE sp_execute_dispatch(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- 1. Insert into Dispatch (fires volunteer check and assignment triggers)
     INSERT INTO Dispatch (DispatchID, RequestID, HubID, CampID, VolunteerID, DispatchDate, TransitStatus)
     VALUES (p_dispatch_id, p_request_id, p_hub_id, p_camp_id, p_volunteer_id, CURRENT_TIMESTAMP, 'in_transit');
 
-    -- 2. Insert into Dispatch_Item (fires stock check and deduction trigger)
     INSERT INTO Dispatch_Item (DispatchID, ItemID, QuantityDispatched)
     VALUES (p_dispatch_id, p_item_id, p_quantity);
 END;
 $$;
 
--- ============================================================================
--- SECTION 4: SEED DATA INSERTION
--- ============================================================================
+-- Seed Data
 
--- 1. Relief_Camp
+-- Relief Camps
 INSERT INTO Relief_Camp (CampID, CampName, Location, Latitude, Longitude, CurrentPopulation, Capacity, ContactName, ContactPhone, ContactInfo, Zone, StatusLevel, LastUpdated)
 VALUES
 ('camp-east-ridge', 'East Ridge Camp', 'East Ridge High School, Ward 8', 9.9816, 76.2999, 1240, 1400, 'Maya Iyer', '+91 98765 01010', 'Maya Iyer (+91 98765 01010)', 'East', 'Critical Level', '2026-08-05 08:10:00+05:30'),
 ('camp-riverbend', 'Riverbend Shelter', 'Riverbend Community Hall', 9.9312, 76.2673, 680, 900, 'Omar Khan', '+91 98765 01011', 'Omar Khan (+91 98765 01011)', 'South', 'Normal', '2026-08-05 08:18:00+05:30'),
 ('camp-hillview', 'Hillview Transit Camp', 'Hillview Stadium Gate 2', 10.0150, 76.3240, 970, 1000, 'Leela Menon', '+91 98765 01012', 'Leela Menon (+91 98765 01012)', 'North', 'Critical Level', '2026-08-05 08:22:00+05:30');
 
--- 2. Supply_Hub
+-- Supply Hubs
 INSERT INTO Supply_Hub (HubID, HubName, Location, Latitude, Longitude, Zone, Capacity, ContactInfo)
 VALUES
 ('hub-north', 'North Supply Hub', 'North Container Terminal, Aluva Road', 10.0280, 76.3080, 'North', 50000, 'Logistics Officer A (+91 98765 02001)'),
 ('hub-east', 'East Logistics Yard', 'Kakkanad Bypass Yard 4', 9.9980, 76.3550, 'East', 75000, 'Logistics Officer B (+91 98765 02002)'),
 ('hub-south', 'South Medical Depot', 'Vyttila Mobility Depot', 9.9670, 76.3180, 'South', 60000, 'Medical Logistics Officer (+91 98765 02003)');
 
--- 3. Inventory
+-- Hub Inventory
 INSERT INTO Inventory (ItemID, HubID, ItemName, Category, ShelfLifeCategory, QuantityAvailable, Threshold, CriticalThreshold, Unit, ShelfLifeDate)
 VALUES
 ('inv-001', 'hub-east', 'Potable Water', 'Water', 'Short', 9200, 5000, 2500, 'liters', '2026-08-28'),
@@ -345,7 +329,7 @@ VALUES
 ('inv-006', 'hub-north', 'Potable Water', 'Water', 'Short', 6500, 4000, 2000, 'liters', '2026-09-02'),
 ('inv-007', 'hub-south', 'First Aid Kits', 'Medical', 'Medium', 850, 500, 200, 'units', '2027-05-15');
 
--- 4. Volunteer
+-- Volunteers
 INSERT INTO Volunteer (VolunteerID, Name, Phone, Skills, VehicleAccess, AssignedZone, Availability)
 VALUES
 ('vol-101', 'Anita Rao', '+91 98765 03001', 'Heavy vehicle, Radio', 'Truck', 'East', 'available'),
@@ -353,7 +337,7 @@ VALUES
 ('vol-103', 'Farah Ali', '+91 98765 03003', 'Forklift, Inventory', 'Truck', 'South', 'available'),
 ('vol-104', 'Rohan Sen', '+91 98765 03004', 'First aid, Translation', 'None', 'East', 'standby');
 
--- 5. Request
+-- Requests
 INSERT INTO Request (RequestID, CampID, ItemCategory, ItemName, QuantityRequested, Unit, UrgencyLevel, RequestDate, Status)
 VALUES
 ('REQ-1039', 'camp-riverbend', 'Medical', 'First Aid Kits', 150, 'units', 'high', '2026-08-05 07:15:00+05:30', 'pending'),
@@ -361,16 +345,10 @@ VALUES
 ('REQ-1049', 'camp-hillview', 'Medical', 'ORS Sachets', 500, 'packs', 'high', '2026-08-05 08:16:00+05:30', 'pending'),
 ('REQ-1050', 'camp-riverbend', 'Shelter', 'Blankets', 300, 'units', 'medium', '2026-08-05 08:24:00+05:30', 'pending');
 
--- 6. Execute seed dispatch for REQ-1039 (automatically updates volunteer Farah Ali and decrements stock)
-INSERT INTO Dispatch (DispatchID, RequestID, HubID, CampID, VolunteerID, DispatchDate, TransitStatus)
-VALUES
-('DSP-1039', 'REQ-1039', 'hub-south', 'camp-riverbend', 'vol-103', '2026-08-05 07:30:00+05:30', 'in_transit');
+-- Existing dispatch for REQ-1039
+CALL sp_execute_dispatch('DSP-1039', 'REQ-1039', 'hub-south', 'camp-riverbend', 'vol-103', 'inv-007', 150);
 
-INSERT INTO Dispatch_Item (DispatchID, ItemID, QuantityDispatched)
-VALUES
-('DSP-1039', 'inv-007', 150);
-
--- 7. Populate Camp_Inventory
+-- Camp Inventory
 INSERT INTO Camp_Inventory (InventoryID, CampID, ItemName, Category, Count, Unit, LastLogged)
 VALUES
 ('camp-inv-001', 'camp-east-ridge', 'Potable Water', 'Water', 900, 'liters', '2026-08-05 07:50:00+05:30'),
@@ -380,20 +358,18 @@ VALUES
 ('camp-inv-005', 'camp-riverbend', 'Rice Rations', 'Food', 600, 'kg', '2026-08-05 07:42:00+05:30'),
 ('camp-inv-006', 'camp-hillview', 'Potable Water', 'Water', 500, 'liters', '2026-08-05 07:55:00+05:30');
 
--- 8. Populate App_User (User Accounts)
+-- Users
 INSERT INTO App_User (UserID, Email, Password, FullName, Role, AssignedCampID)
 VALUES
 ('usr-001', 'dispatcher@reliefops.org', 'admin123', 'Regional Dispatcher', 'dispatcher', NULL),
-('usr-002', 'ops@example.org', 'admin123', 'Regional Dispatcher', 'dispatcher', NULL),
-('usr-003', 'maya@eastridge.org', 'camp123', 'Maya Iyer', 'camp_manager', 'camp-east-ridge'),
-('usr-004', 'omar@riverbend.org', 'camp123', 'Omar Khan', 'camp_manager', 'camp-riverbend'),
-('usr-005', 'leela@hillview.org', 'camp123', 'Leela Menon', 'camp_manager', 'camp-hillview');
+('usr-002', 'maya@eastridge.org', 'camp123', 'Maya Iyer', 'camp_manager', 'camp-east-ridge'),
+('usr-003', 'omar@riverbend.org', 'camp123', 'Omar Khan', 'camp_manager', 'camp-riverbend'),
+('usr-004', 'leela@hillview.org', 'camp123', 'Leela Menon', 'camp_manager', 'camp-hillview'),
+('usr-005', 'admin@reliefops.org', 'admin123', 'System Administrator', 'dispatcher', NULL);
 
--- ============================================================================
--- SECTION 5: VERIFICATION QUERIES (Run to inspect live tables)
--- ============================================================================
+-- Verification queries
 
--- Query 1: Nearest Stocked Hub Matches
+-- 1. Nearest stocked hub for pending requests
 SELECT 
     r.RequestID,
     r.ItemCategory,
@@ -402,6 +378,8 @@ SELECT
     r.Unit,
     r.UrgencyLevel,
     c.CampName,
+    c.Location AS CampLocation,
+    sh.HubID,
     sh.HubName,
     inv.QuantityAvailable AS StockAtHub,
     ROUND(
@@ -409,23 +387,40 @@ SELECT
             POWER(sh.Latitude - c.Latitude, 2) +
             POWER((sh.Longitude - c.Longitude) * COS(RADIANS(c.Latitude)), 2)
         ))::numeric, 1
-    ) AS DistanceKm
+    ) AS DistanceKm,
+    ROUND(
+        ((111.0 * SQRT(
+            POWER(sh.Latitude - c.Latitude, 2) +
+            POWER((sh.Longitude - c.Longitude) * COS(RADIANS(c.Latitude)), 2)
+        ) / 25.0) * 60 + 15)::numeric
+    ) AS EstimatedTransitMinutes
 FROM Request r
 JOIN Relief_Camp c ON r.CampID = c.CampID
 JOIN Inventory inv ON inv.ItemName = r.ItemName AND inv.QuantityAvailable >= r.QuantityRequested
 JOIN Supply_Hub sh ON inv.HubID = sh.HubID
 WHERE r.Status = 'pending'
-ORDER BY r.UrgencyLevel DESC, DistanceKm ASC;
+ORDER BY 
+    CASE r.UrgencyLevel 
+        WHEN 'critical' THEN 1 
+        WHEN 'high' THEN 2 
+        WHEN 'medium' THEN 3 
+        ELSE 4 
+    END,
+    DistanceKm ASC;
 
--- Query 2: Volunteer Availability Roster
+-- 2. Volunteer roster
 SELECT 
     v.VolunteerID,
-    v.Name,
+    v.Name AS VolunteerName,
     v.Phone,
     v.VehicleAccess,
     v.AssignedZone,
     v.Availability,
-    d.DispatchID AS ActiveDispatchID,
-    d.RequestID AS AssignedRequestID
+    d.DispatchID,
+    d.RequestID,
+    c.CampName AS DestinationCamp,
+    d.DispatchDate
 FROM Volunteer v
-LEFT JOIN Dispatch d ON v.VolunteerID = d.VolunteerID AND d.TransitStatus = 'in_transit';
+LEFT JOIN Dispatch d ON v.VolunteerID = d.VolunteerID AND d.TransitStatus IN ('in_transit', 'pending')
+LEFT JOIN Relief_Camp c ON d.CampID = c.CampID
+ORDER BY v.Availability, v.Name;

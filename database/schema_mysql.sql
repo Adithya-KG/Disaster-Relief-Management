@@ -1,13 +1,7 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- MySQL / MariaDB Relational Schema, Triggers & Stored Procedures
--- ============================================================================
-
 CREATE DATABASE IF NOT EXISTS DisasterReliefDB;
 USE DisasterReliefDB;
 
--- Drop in foreign-key dependency order
+-- Drop existing tables
 DROP TABLE IF EXISTS Dispatch_Item;
 DROP TABLE IF EXISTS Dispatch;
 DROP TABLE IF EXISTS Request;
@@ -17,7 +11,7 @@ DROP TABLE IF EXISTS Volunteer;
 DROP TABLE IF EXISTS Supply_Hub;
 DROP TABLE IF EXISTS Relief_Camp;
 
--- 1. Relief_Camp
+-- Relief Camps
 CREATE TABLE Relief_Camp (
     CampID VARCHAR(50) PRIMARY KEY,
     CampName VARCHAR(100) NOT NULL,
@@ -34,7 +28,7 @@ CREATE TABLE Relief_Camp (
     LastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 2. Supply_Hub
+-- Supply Hubs
 CREATE TABLE Supply_Hub (
     HubID VARCHAR(50) PRIMARY KEY,
     HubName VARCHAR(100) NOT NULL,
@@ -46,7 +40,7 @@ CREATE TABLE Supply_Hub (
     ContactInfo VARCHAR(200)
 ) ENGINE=InnoDB;
 
--- 3. Inventory
+-- Hub Inventory
 CREATE TABLE Inventory (
     ItemID VARCHAR(50) PRIMARY KEY,
     HubID VARCHAR(50) NOT NULL,
@@ -61,7 +55,7 @@ CREATE TABLE Inventory (
     CONSTRAINT fk_inv_hub FOREIGN KEY (HubID) REFERENCES Supply_Hub(HubID) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- 4. Volunteer
+-- Volunteers
 CREATE TABLE Volunteer (
     VolunteerID VARCHAR(50) PRIMARY KEY,
     Name VARCHAR(100) NOT NULL,
@@ -72,7 +66,7 @@ CREATE TABLE Volunteer (
     Availability ENUM('available', 'assigned', 'standby') NOT NULL DEFAULT 'available'
 ) ENGINE=InnoDB;
 
--- 5. Request
+-- Camp Requests
 CREATE TABLE Request (
     RequestID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -86,7 +80,7 @@ CREATE TABLE Request (
     CONSTRAINT fk_req_camp FOREIGN KEY (CampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- 6. Dispatch
+-- Dispatches
 CREATE TABLE Dispatch (
     DispatchID VARCHAR(50) PRIMARY KEY,
     RequestID VARCHAR(50) NOT NULL UNIQUE,
@@ -101,7 +95,7 @@ CREATE TABLE Dispatch (
     CONSTRAINT fk_dsp_vol FOREIGN KEY (VolunteerID) REFERENCES Volunteer(VolunteerID) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- 7. Dispatch_Item
+-- Dispatch Items
 CREATE TABLE Dispatch_Item (
     DispatchID VARCHAR(50) NOT NULL,
     ItemID VARCHAR(50) NOT NULL,
@@ -111,7 +105,7 @@ CREATE TABLE Dispatch_Item (
     CONSTRAINT fk_di_item FOREIGN KEY (ItemID) REFERENCES Inventory(ItemID) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- 8. Camp_Inventory
+-- Camp Inventory
 CREATE TABLE Camp_Inventory (
     InventoryID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -124,9 +118,7 @@ CREATE TABLE Camp_Inventory (
     UNIQUE KEY uq_camp_item (CampID, ItemName)
 ) ENGINE=InnoDB;
 
--- ============================================================================
--- MySQL Stored Procedure for Atomic Dispatch Transaction (Section 3.1)
--- ============================================================================
+-- Stored procedure for dispatch transaction
 DELIMITER //
 
 CREATE PROCEDURE ExecuteDispatchTransaction(
@@ -142,7 +134,6 @@ proc_label: BEGIN
     DECLARE v_stock INT;
     DECLARE v_camp_id VARCHAR(50);
 
-    -- Start Atomic Transaction
     START TRANSACTION;
 
     -- 1. Check volunteer availability

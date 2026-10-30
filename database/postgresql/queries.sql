@@ -1,10 +1,4 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- Engine: PostgreSQL (pgAdmin Analytical & Reporting Queries)
--- ============================================================================
-
--- Query 1: Nearest Stocked Hub Matching for Pending Requests
+-- 1. Find nearest hub with available stock for pending requests
 SELECT 
     r.RequestID,
     r.ItemCategory,
@@ -43,7 +37,7 @@ ORDER BY
     END,
     DistanceKm ASC;
 
--- Query 2: 24-Hour Buffer Deficit Analysis per Camp
+-- 2. Check food and water buffer deficit for each camp
 SELECT 
     c.CampID,
     c.CampName,
@@ -67,7 +61,7 @@ FROM Relief_Camp c
 LEFT JOIN Camp_Inventory water ON c.CampID = water.CampID AND water.Category = 'Water'
 LEFT JOIN Camp_Inventory food ON c.CampID = food.CampID AND food.Category = 'Food';
 
--- Query 3: Perishable Stock Expiry and Depletion Report
+-- 3. Check low inventory and expiring stock
 SELECT 
     sh.HubName,
     inv.ItemID,
@@ -87,7 +81,7 @@ FROM Inventory inv
 JOIN Supply_Hub sh ON inv.HubID = sh.HubID
 ORDER BY inv.ShelfLifeDate ASC, inv.QuantityAvailable ASC;
 
--- Query 4: Volunteer Roster and Active Missions
+-- 4. Volunteer roster and active dispatches
 SELECT 
     v.VolunteerID,
     v.Name AS VolunteerName,
@@ -104,7 +98,7 @@ LEFT JOIN Dispatch d ON v.VolunteerID = d.VolunteerID AND d.TransitStatus IN ('i
 LEFT JOIN Relief_Camp c ON d.CampID = c.CampID
 ORDER BY v.Availability, v.Name;
 
--- Query 5: Full Supply Chain Traceability (Lossless Join Audit)
+-- 5. Complete dispatch tracking from hub to camp
 SELECT 
     d.DispatchID,
     d.DispatchDate,

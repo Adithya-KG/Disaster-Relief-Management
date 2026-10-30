@@ -1,9 +1,3 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- Engine: PostgreSQL (pgAdmin Compatible DDL)
--- ============================================================================
-
 DROP TABLE IF EXISTS App_User CASCADE;
 DROP TABLE IF EXISTS Dispatch_Item CASCADE;
 DROP TABLE IF EXISTS Dispatch CASCADE;
@@ -14,7 +8,7 @@ DROP TABLE IF EXISTS Volunteer CASCADE;
 DROP TABLE IF EXISTS Supply_Hub CASCADE;
 DROP TABLE IF EXISTS Relief_Camp CASCADE;
 
--- 1. Relief_Camp
+-- Relief Camps
 CREATE TABLE Relief_Camp (
     CampID VARCHAR(50) PRIMARY KEY,
     CampName VARCHAR(100) NOT NULL,
@@ -31,7 +25,7 @@ CREATE TABLE Relief_Camp (
     LastUpdated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Supply_Hub
+-- Supply Hubs
 CREATE TABLE Supply_Hub (
     HubID VARCHAR(50) PRIMARY KEY,
     HubName VARCHAR(100) NOT NULL,
@@ -43,7 +37,7 @@ CREATE TABLE Supply_Hub (
     ContactInfo VARCHAR(200)
 );
 
--- 3. Inventory
+-- Hub Inventory
 CREATE TABLE Inventory (
     ItemID VARCHAR(50) PRIMARY KEY,
     HubID VARCHAR(50) NOT NULL,
@@ -58,7 +52,7 @@ CREATE TABLE Inventory (
     CONSTRAINT fk_inv_hub FOREIGN KEY (HubID) REFERENCES Supply_Hub(HubID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 4. Volunteer
+-- Volunteers
 CREATE TABLE Volunteer (
     VolunteerID VARCHAR(50) PRIMARY KEY,
     Name VARCHAR(100) NOT NULL,
@@ -69,7 +63,7 @@ CREATE TABLE Volunteer (
     Availability VARCHAR(30) NOT NULL DEFAULT 'available' CHECK (Availability IN ('available', 'assigned', 'standby'))
 );
 
--- 5. Request
+-- Camp Requests
 CREATE TABLE Request (
     RequestID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -83,7 +77,7 @@ CREATE TABLE Request (
     CONSTRAINT fk_req_camp FOREIGN KEY (CampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 6. Dispatch
+-- Dispatches
 CREATE TABLE Dispatch (
     DispatchID VARCHAR(50) PRIMARY KEY,
     RequestID VARCHAR(50) NOT NULL UNIQUE,
@@ -98,7 +92,7 @@ CREATE TABLE Dispatch (
     CONSTRAINT fk_dsp_vol FOREIGN KEY (VolunteerID) REFERENCES Volunteer(VolunteerID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 7. Dispatch_Item
+-- Dispatch Items
 CREATE TABLE Dispatch_Item (
     DispatchID VARCHAR(50) NOT NULL,
     ItemID VARCHAR(50) NOT NULL,
@@ -108,7 +102,7 @@ CREATE TABLE Dispatch_Item (
     CONSTRAINT fk_di_item FOREIGN KEY (ItemID) REFERENCES Inventory(ItemID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 8. Camp_Inventory
+-- Camp Inventory
 CREATE TABLE Camp_Inventory (
     InventoryID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -121,7 +115,7 @@ CREATE TABLE Camp_Inventory (
     CONSTRAINT uq_camp_item UNIQUE (CampID, ItemName)
 );
 
--- 9. App_User (User Accounts & Authentication)
+-- App Users
 CREATE TABLE App_User (
     UserID VARCHAR(50) PRIMARY KEY,
     Email VARCHAR(100) UNIQUE NOT NULL,

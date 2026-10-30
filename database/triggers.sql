@@ -1,15 +1,4 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- Triggers and Integrity Rules (Section 3.1 Business Rules)
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- Rule 1: Camp Status Level Auto-Update Trigger
--- A camp's StatusLevel flips to 'Critical Level' automatically if logged water
--- drops below 2 Liters/person/day OR logged food drops below 0.5 kg/person/day.
--- ----------------------------------------------------------------------------
-
+-- Auto-update camp status when camp inventory changes
 DROP TRIGGER IF EXISTS trg_camp_inv_insert_check_buffer;
 DROP TRIGGER IF EXISTS trg_camp_inv_update_check_buffer;
 
@@ -18,7 +7,6 @@ AFTER INSERT ON Camp_Inventory
 BEGIN
     UPDATE Relief_Camp
     SET StatusLevel = CASE
-        -- If water stock is below 2L per person OR food stock is below 0.5kg per person
         WHEN (
             SELECT COALESCE(SUM(Count), 0)
             FROM Camp_Inventory
@@ -58,11 +46,7 @@ BEGIN
     WHERE CampID = NEW.CampID;
 END;
 
--- ----------------------------------------------------------------------------
--- Rule 2: Prevent Volunteer Double-Booking
--- A volunteer can only have one active dispatch at a time (TransitStatus IN ('in_transit', 'pending')).
--- ----------------------------------------------------------------------------
-
+-- Prevent volunteer double booking
 DROP TRIGGER IF EXISTS trg_prevent_volunteer_double_booking;
 
 CREATE TRIGGER trg_prevent_volunteer_double_booking
@@ -85,11 +69,7 @@ BEGIN
         END;
 END;
 
--- ----------------------------------------------------------------------------
--- Rule 3: Automatically Mark Volunteer as Assigned on Dispatch
--- And mark the associated Request as 'in_transit'
--- ----------------------------------------------------------------------------
-
+-- Update volunteer and request status when dispatch is created
 DROP TRIGGER IF EXISTS trg_dispatch_after_insert;
 
 CREATE TRIGGER trg_dispatch_after_insert
@@ -104,11 +84,7 @@ BEGIN
     WHERE RequestID = NEW.RequestID;
 END;
 
--- ----------------------------------------------------------------------------
--- Rule 4: Prevent Overselling Inventory
--- Stock cannot be dispatched if QuantityDispatched exceeds QuantityAvailable.
--- ----------------------------------------------------------------------------
-
+-- Stock check and deduction on dispatch
 DROP TRIGGER IF EXISTS trg_check_inventory_stock;
 DROP TRIGGER IF EXISTS trg_deduct_inventory_stock;
 
@@ -134,11 +110,7 @@ BEGIN
     WHERE ItemID = NEW.ItemID;
 END;
 
--- ----------------------------------------------------------------------------
--- Rule 5: Request Fulfillment Integrity
--- A request cannot be marked 'fulfilled' unless a matching dispatch record exists.
--- ----------------------------------------------------------------------------
-
+-- Verify request has a dispatch before marking fulfilled
 DROP TRIGGER IF EXISTS trg_verify_request_fulfillment;
 
 CREATE TRIGGER trg_verify_request_fulfillment

@@ -1,15 +1,4 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- SQL Analytics, Reporting & Verification Queries
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- Query 1: Nearest Stocked Hub Matching for Pending Requests
--- Matches each pending relief request to the nearest hub that holds sufficient stock.
--- Uses approximate Euclidean surface distance formula:
--- Distance (km) ~ sqrt( (dLat * 111.0)^2 + (dLon * 111.0 * cos(lat))^2 )
--- ----------------------------------------------------------------------------
+-- 1. Find nearest hub with available stock for pending requests
 SELECT 
     r.RequestID,
     r.ItemCategory,
@@ -41,11 +30,7 @@ JOIN Supply_Hub sh ON inv.HubID = sh.HubID
 WHERE r.Status = 'pending'
 ORDER BY r.UrgencyLevel DESC, DistanceKm ASC;
 
--- ----------------------------------------------------------------------------
--- Query 2: 24-Hour Buffer Deficit Analysis per Camp
--- Evaluates food (0.5 kg/person/day) and water (2.0 L/person/day) buffers.
--- Demonstrates the justification for the automated StatusLevel trigger.
--- ----------------------------------------------------------------------------
+-- 2. Check food and water buffer deficit for each camp
 SELECT 
     c.CampID,
     c.CampName,
@@ -69,10 +54,7 @@ FROM Relief_Camp c
 LEFT JOIN Camp_Inventory water ON c.CampID = water.CampID AND water.Category = 'Water'
 LEFT JOIN Camp_Inventory food ON c.CampID = food.CampID AND food.Category = 'Food';
 
--- ----------------------------------------------------------------------------
--- Query 3: Perishable Stock Expiry and Threshold Alert Report
--- Flags items expiring within 30 days or falling below critical safety buffer.
--- ----------------------------------------------------------------------------
+-- 3. Check low inventory and expiring stock
 SELECT 
     sh.HubName,
     inv.ItemID,
@@ -92,9 +74,7 @@ FROM Inventory inv
 JOIN Supply_Hub sh ON inv.HubID = sh.HubID
 ORDER BY inv.ShelfLifeDate ASC, inv.QuantityAvailable ASC;
 
--- ----------------------------------------------------------------------------
--- Query 4: Volunteer Roster and Active Mission Tracking
--- ----------------------------------------------------------------------------
+-- 4. Volunteer roster and active dispatches
 SELECT 
     v.VolunteerID,
     v.Name AS VolunteerName,
@@ -111,11 +91,7 @@ LEFT JOIN Dispatch d ON v.VolunteerID = d.VolunteerID AND d.TransitStatus IN ('i
 LEFT JOIN Relief_Camp c ON d.CampID = c.CampID
 ORDER BY v.Availability, v.Name;
 
--- ----------------------------------------------------------------------------
--- Query 5: Full Supply Chain Traceability (Lossless Join Audit)
--- Traces aid from originating hub batch to receiving camp shelter.
--- Proves lossless decomposition and BCNF relational integrity.
--- ----------------------------------------------------------------------------
+-- 5. Complete dispatch tracking from hub to camp
 SELECT 
     d.DispatchID,
     d.DispatchDate,

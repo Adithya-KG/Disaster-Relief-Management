@@ -1,9 +1,3 @@
--- ============================================================================
--- Course: 23CSE202 DATABASE MANAGEMENT SYSTEMS
--- Project: Disaster Relief & Resource Distribution Database
--- Relational Schema DDL (3.3 Relational Schema from Design Document)
--- ============================================================================
-
 PRAGMA foreign_keys = ON;
 
 DROP TABLE IF EXISTS App_User;
@@ -16,8 +10,7 @@ DROP TABLE IF EXISTS Volunteer;
 DROP TABLE IF EXISTS Supply_Hub;
 DROP TABLE IF EXISTS Relief_Camp;
 
--- 1. Relief_Camp
--- Relief_Camp (CampID (PK), CampName, Location, Latitude, Longitude, CurrentPopulation, ContactInfo, StatusLevel)
+-- Relief Camps
 CREATE TABLE Relief_Camp (
     CampID VARCHAR(50) PRIMARY KEY,
     CampName VARCHAR(100) NOT NULL,
@@ -34,8 +27,7 @@ CREATE TABLE Relief_Camp (
     LastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Supply_Hub
--- Supply_Hub (HubID (PK), HubName, Location, Capacity, ContactInfo)
+-- Supply Hubs
 CREATE TABLE Supply_Hub (
     HubID VARCHAR(50) PRIMARY KEY,
     HubName VARCHAR(100) NOT NULL,
@@ -47,8 +39,7 @@ CREATE TABLE Supply_Hub (
     ContactInfo VARCHAR(200)
 );
 
--- 3. Inventory
--- Inventory (ItemID (PK), HubID (FK -> Supply_Hub.HubID), ItemName, Category, QuantityAvailable, Unit, ShelfLifeDate)
+-- Hub Inventory
 CREATE TABLE Inventory (
     ItemID VARCHAR(50) PRIMARY KEY,
     HubID VARCHAR(50) NOT NULL,
@@ -63,20 +54,18 @@ CREATE TABLE Inventory (
     FOREIGN KEY (HubID) REFERENCES Supply_Hub(HubID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 4. Volunteer
--- Volunteer (VolunteerID (PK), Name, Phone, Skills, VehicleAccess, AssignedZone)
+-- Volunteers
 CREATE TABLE Volunteer (
     VolunteerID VARCHAR(50) PRIMARY KEY,
     Name VARCHAR(100) NOT NULL,
     Phone VARCHAR(30) NOT NULL,
-    Skills TEXT NOT NULL, -- Stored as comma-separated or JSON list (e.g. 'Heavy vehicle, Radio')
+    Skills TEXT NOT NULL,
     VehicleAccess VARCHAR(50) NOT NULL CHECK (VehicleAccess IN ('Truck', 'Van', 'Motorbike', 'None')),
     AssignedZone VARCHAR(50) NOT NULL,
     Availability VARCHAR(30) NOT NULL DEFAULT 'available' CHECK (Availability IN ('available', 'assigned', 'standby'))
 );
 
--- 5. Request
--- Request (RequestID (PK), CampID (FK -> Relief_Camp.CampID), ItemCategory, ItemName, QuantityRequested, UrgencyLevel, RequestDate, Status)
+-- Camp Requests
 CREATE TABLE Request (
     RequestID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -90,11 +79,10 @@ CREATE TABLE Request (
     FOREIGN KEY (CampID) REFERENCES Relief_Camp(CampID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 6. Dispatch
--- Dispatch (DispatchID (PK), RequestID (FK -> Request.RequestID), HubID (FK -> Supply_Hub.HubID), CampID (FK -> Relief_Camp.CampID), VolunteerID (FK -> Volunteer.VolunteerID), DispatchDate, TransitStatus)
+-- Dispatches
 CREATE TABLE Dispatch (
     DispatchID VARCHAR(50) PRIMARY KEY,
-    RequestID VARCHAR(50) NOT NULL UNIQUE, -- 1:1 relationship with Request
+    RequestID VARCHAR(50) NOT NULL UNIQUE,
     HubID VARCHAR(50) NOT NULL,
     CampID VARCHAR(50) NOT NULL,
     VolunteerID VARCHAR(50) NOT NULL,
@@ -106,9 +94,7 @@ CREATE TABLE Dispatch (
     FOREIGN KEY (VolunteerID) REFERENCES Volunteer(VolunteerID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 7. Dispatch_Item
--- Dispatch_Item (DispatchID (PK, FK -> Dispatch.DispatchID), ItemID (PK, FK -> Inventory.ItemID), QuantityDispatched)
--- Composite primary key resolving N:M between Dispatch and Inventory
+-- Dispatch Items
 CREATE TABLE Dispatch_Item (
     DispatchID VARCHAR(50) NOT NULL,
     ItemID VARCHAR(50) NOT NULL,
@@ -118,8 +104,7 @@ CREATE TABLE Dispatch_Item (
     FOREIGN KEY (ItemID) REFERENCES Inventory(ItemID) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
--- 8. Camp_Inventory (Camp On-Site Logged Stock)
--- Tracks on-site stock logged by camp managers to evaluate the 24-hr buffer rule
+-- Camp Inventory
 CREATE TABLE Camp_Inventory (
     InventoryID VARCHAR(50) PRIMARY KEY,
     CampID VARCHAR(50) NOT NULL,
@@ -132,8 +117,7 @@ CREATE TABLE Camp_Inventory (
     UNIQUE (CampID, ItemName)
 );
 
--- 9. App_User (User Accounts & Authentication)
--- Stores login credentials, assigned role, and assigned camp for access control
+-- App Users
 CREATE TABLE App_User (
     UserID VARCHAR(50) PRIMARY KEY,
     Email VARCHAR(100) UNIQUE NOT NULL,

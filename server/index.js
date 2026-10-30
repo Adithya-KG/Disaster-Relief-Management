@@ -429,8 +429,7 @@ app.post('/api/camps/:campId/inventory-logs', (req, res) => {
       )
       .get(id);
 
-    // Trigger trg_camp_inv_update_check_buffer / trg_camp_inv_insert_check_buffer updates Relief_Camp.StatusLevel
-    // Fallback sync to guarantee 100% consistency:
+    // Sync camp status based on inventory levels
     const campRow = db.prepare('SELECT CurrentPopulation FROM Relief_Camp WHERE CampID = ?').get(campId);
     if (campRow) {
       const waterSum = db.prepare("SELECT COALESCE(SUM(Count), 0) AS total FROM Camp_Inventory WHERE CampID = ? AND Category = 'Water'").get(campId).total;
@@ -570,10 +569,8 @@ app.post('/api/camps/:campId/requests', (req, res) => {
   }
 });
 
-// ----------------------------------------------------------------------------
-// 11. POST /api/dispatches
-// Stored Transaction for Dispatch Execution (Atomic Rule 2 from Section 3.1)
-// ----------------------------------------------------------------------------
+// POST /api/dispatches
+// Create dispatch transaction
 app.post('/api/dispatches', (req, res) => {
   const { requestId, volunteerId } = req.body;
 
